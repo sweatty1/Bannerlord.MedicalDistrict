@@ -1,0 +1,25 @@
+﻿<Module>
+	<Name value="Medical District"/>
+	<Id value="Bannerlord.MedicalDistrict"/>
+	<Version value="v1.0.0"/>
+	<SingleplayerModule value="true"/>
+	<MultiplayerModule value="false"/>
+	<DependedModules>
+		<DependedModule Id="Native"/>
+		<DependedModule Id="SandBoxCore"/>
+		<DependedModule Id="Sandbox"/>
+		<DependedModule Id="CustomBattle"/>
+		<DependedModule Id="StoryMode" />
+	</DependedModules>
+	<SubModules>
+		<SubModule>
+			<Name value="Medical District"/>
+			<DLLName value="Bannerlord.MedicalDistrict.dll"/>
+			<SubModuleClassType value="Bannerlord.MedicalDistrict.MedicalDistrictSubModule"/>
+			<Tags>
+				<Tag key="DedicatedServerType" value="none" />
+				<Tag key="IsNoRenderModeElement" value="false" />
+			</Tags>
+		</SubModule>
+	</SubModules>
+</Module>

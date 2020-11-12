@@ -16,10 +16,9 @@ namespace Bannerlord.MedicalDistrict
 			CampaignEvents.OnSessionLaunchedEvent.AddNonSerializedListener(this, new Action<CampaignGameStarter>(this.OnSessionLaunched));
 		}
 
-		// start of the dialog and game Menu code flows
 		public void OnSessionLaunched(CampaignGameStarter campaignGameStarter)
 		{
-			this.AddGameMenus(campaignGameStarter);
+			AddGameMenus(campaignGameStarter);
 		}
 
 		public void AddGameMenus(CampaignGameStarter campaignGameStarter)
@@ -28,7 +27,7 @@ namespace Bannerlord.MedicalDistrict
 			{
 				GameMenu.SwitchToMenu("town_medical_district");
 			}, false, 4, false);
-			campaignGameStarter.AddGameMenu("town_medical_district", "You arrive at the towns medical district. As you approach you notice the local nurses and doctors running about treating the masses.", new OnInitDelegate(town_medical_district_on_init), GameOverlays.MenuOverlayType.SettlementWithBoth, GameMenu.MenuFlags.none, null);
+			campaignGameStarter.AddGameMenu("town_medical_district", "You arrive at the city's medical district. As you approach you notice the local nurses and doctors running about treating the masses.", new OnInitDelegate(town_medical_district_on_init), GameOverlays.MenuOverlayType.SettlementWithBoth, GameMenu.MenuFlags.none, null);
 
 			campaignGameStarter.AddGameMenuOption("town_medical_district", "town_medical_district_self_heal", "{=*}Get yourself treated. ({HEAL_SELF_AMOUNT}{GOLD_ICON})", new GameMenuOption.OnConditionDelegate(player_needs_heal_on_condition), delegate (MenuCallbackArgs x)
 			{
@@ -36,11 +35,11 @@ namespace Bannerlord.MedicalDistrict
 			}, false, -1, false);
 			campaignGameStarter.AddGameMenuOption("town_medical_district", "town_medical_district_companion_heal", "{=*}Get your companions treated. ({HEAL_COMPANION_AMOUNT}{GOLD_ICON})", new GameMenuOption.OnConditionDelegate(companions_needs_heal_on_condition), delegate (MenuCallbackArgs x)
 			{
-				HealCompanionCharacters();
+				HealPartyCharacters(false);
 			}, false, -1, false);
-			campaignGameStarter.AddGameMenuOption("town_medical_district", "town_medical_district_player_and_companion_heal", "{=*}Get your companions and yourself treated. ({HEAL_ALL_AMOUNT}{GOLD_ICON})", new GameMenuOption.OnConditionDelegate(player_and_companions_needs_heal_on_condition), delegate (MenuCallbackArgs x)
+			campaignGameStarter.AddGameMenuOption("town_medical_district", "town_medical_district_player_and_companion_heal", "{=*}Get your companions and yourself treated. ({HEAL_ALL_AMOUNT}{GOLD_ICON})", new GameMenuOption.OnConditionDelegate(party_characters_needs_heal_on_condition), delegate (MenuCallbackArgs x)
 			{
-				HealPlayerCharacterAndCompanions();
+				HealPartyCharacters(true);
 			}, false, -1, false);
 			campaignGameStarter.AddGameMenuOption("town_medical_district", "town_medical_district_back", "{=qWAmxyYz}Back to town center", new GameMenuOption.OnConditionDelegate(back_on_condition), delegate (MenuCallbackArgs x)
 			{
@@ -49,12 +48,8 @@ namespace Bannerlord.MedicalDistrict
 		}
 		private bool game_menu_go_to_medical_district_on_condition(MenuCallbackArgs args)
 		{
-			bool shouldBeDisabled;
-			TextObject disabledText;
-			// figure this functionality out
-			bool canPlayerDo = Campaign.Current.Models.SettlementAccessModel.CanMainHeroAccessLocation(Settlement.CurrentSettlement, "tavern", out shouldBeDisabled, out disabledText);
 			args.optionLeaveType = GameMenuOption.LeaveType.Submenu;
-			return MenuHelper.SetOptionProperties(args, canPlayerDo, shouldBeDisabled, disabledText);
+			return MenuHelper.SetOptionProperties(args, true, false, TextObject.Empty);
 		}
 		private void town_medical_district_on_init(MenuCallbackArgs args)
 		{
@@ -83,24 +78,9 @@ namespace Bannerlord.MedicalDistrict
 
 		private bool companions_needs_heal_on_condition(MenuCallbackArgs args)
 		{
-			TroopRoster memberRoster = MobileParty.MainParty.MemberRoster;
 			int numberInjured = 0;
 			int price = 0;
-			if (memberRoster.TotalHeroes > 0)
-			{
-				for (int i = 0; i < memberRoster.Count; i++)
-				{
-					Hero heroObject = memberRoster.GetCharacterAtIndex(i).HeroObject;
-					if (heroObject != null)
-					{
-						if (heroObject.HitPoints < heroObject.MaxHitPoints && heroObject != Hero.MainHero)
-						{
-							price += PriceToHeal(heroObject);
-							numberInjured++;
-						}
-					}
-				}
-			}
+			CalculatePriceAndNumInjured(ref price, ref numberInjured, false, false);
 			if (numberInjured > 0)
 			{
 				MBTextManager.SetTextVariable("HEAL_COMPANION_AMOUNT", price);
@@ -110,57 +90,13 @@ namespace Bannerlord.MedicalDistrict
 			return false;
 		}
 
-		private void HealCompanionCharacters()
+		private bool party_characters_needs_heal_on_condition(MenuCallbackArgs args)
 		{
-			TroopRoster memberRoster = MobileParty.MainParty.MemberRoster;
-			int numberTreated = 0;
-			int price = 0;
-			if (memberRoster.TotalHeroes > 0)
-			{
-				for (int i = 0; i < memberRoster.Count; i++)
-				{
-					Hero heroObject = memberRoster.GetCharacterAtIndex(i).HeroObject;
-					if (heroObject != null)
-					{
-						if (heroObject.HitPoints < heroObject.MaxHitPoints && heroObject != Hero.MainHero)
-						{
-							numberTreated++;
-							price += PriceToHeal(heroObject);
-							heroObject.HitPoints = heroObject.MaxHitPoints;
-						}
-					}
-				}
-			}
-			if (numberTreated > 0)
-			{
-				GiveGoldAction.ApplyBetweenCharacters(null, Hero.MainHero, -price, false);
-			}
-			GameMenu.SwitchToMenu("town_medical_district");
-		}
-
-		private bool player_and_companions_needs_heal_on_condition(MenuCallbackArgs args)
-		{
-			TroopRoster memberRoster = MobileParty.MainParty.MemberRoster;
 			int numberInjured = 0;
 			int price = 0;
-			if (memberRoster.TotalHeroes > 0)
+			CalculatePriceAndNumInjured(ref price, ref numberInjured, true, false);
+			if (numberInjured > 1 && Hero.MainHero.HitPoints < Hero.MainHero.MaxHitPoints)
 			{
-				for (int i = 0; i < memberRoster.Count; i++)
-				{
-					Hero heroObject = memberRoster.GetCharacterAtIndex(i).HeroObject;
-					if (heroObject != null)
-					{
-						if (heroObject.HitPoints < heroObject.MaxHitPoints && heroObject != Hero.MainHero)
-						{
-							numberInjured++;
-							price += PriceToHeal(heroObject);
-						}
-					}
-				}
-			}
-			if (numberInjured > 0 && Hero.MainHero.HitPoints < Hero.MainHero.MaxHitPoints)
-			{
-				price += PriceToHeal(Hero.MainHero);
 				MBTextManager.SetTextVariable("HEAL_ALL_AMOUNT", price);
 				args.optionLeaveType = GameMenuOption.LeaveType.RansomAndBribe;
 				return true;
@@ -168,27 +104,11 @@ namespace Bannerlord.MedicalDistrict
 			return false;
 		}
 
-		private void HealPlayerCharacterAndCompanions()
+		private void HealPartyCharacters(bool healplayer)
 		{
-			TroopRoster memberRoster = MobileParty.MainParty.MemberRoster;
 			int numberTreated = 0;
 			int price = 0;
-			if (memberRoster.TotalHeroes > 0)
-			{
-				for (int i = 0; i < memberRoster.Count; i++)
-				{
-					Hero heroObject = memberRoster.GetCharacterAtIndex(i).HeroObject;
-					if (heroObject != null)
-					{
-						if (heroObject.HitPoints < heroObject.MaxHitPoints)
-						{
-							numberTreated++;
-							price += PriceToHeal(heroObject);
-							heroObject.HitPoints = heroObject.MaxHitPoints;
-						}
-					}
-				}
-			}
+			CalculatePriceAndNumInjured(ref price, ref numberTreated, healplayer, true);
 			if (numberTreated > 0)
 			{
 				GiveGoldAction.ApplyBetweenCharacters(null, Hero.MainHero, -price, false);
@@ -207,6 +127,30 @@ namespace Bannerlord.MedicalDistrict
 			double basePrice = 1000;
 			double percentHpMissing = (double)(hero.MaxHitPoints - hero.HitPoints)/hero.MaxHitPoints;
 			return Convert.ToInt32(basePrice * percentHpMissing);
+		}
+
+		private void CalculatePriceAndNumInjured(ref int price, ref int numberTreated, bool includeMainHero, bool restoreHealth)
+		{
+			TroopRoster memberRoster = MobileParty.MainParty.MemberRoster;
+			if (memberRoster.TotalHeroes > 0)
+			{
+				for (int i = 0; i < memberRoster.Count; i++)
+				{
+					Hero heroObject = memberRoster.GetCharacterAtIndex(i).HeroObject;
+					if (heroObject != null)
+					{
+						if (heroObject.HitPoints < heroObject.MaxHitPoints && (includeMainHero || heroObject != Hero.MainHero))
+						{
+							numberTreated++;
+							price += PriceToHeal(heroObject);
+							if (restoreHealth)
+							{
+								heroObject.HitPoints = heroObject.MaxHitPoints;
+							}
+						}
+					}
+				}
+			}
 		}
 	}
 }
