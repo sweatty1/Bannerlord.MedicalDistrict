@@ -8,7 +8,6 @@
 		<DependedModule Id="Native"/>
 		<DependedModule Id="SandBoxCore"/>
 		<DependedModule Id="Sandbox"/>
-		<DependedModule Id="CustomBattle"/>
 		<DependedModule Id="StoryMode" />
 	</DependedModules>
 	<SubModules>
@@ -16,10 +15,7 @@
 			<Name value="Medical District"/>
 			<DLLName value="Bannerlord.MedicalDistrict.dll"/>
 			<SubModuleClassType value="Bannerlord.MedicalDistrict.MedicalDistrictSubModule"/>
-			<Tags>
-				<Tag key="DedicatedServerType" value="none" />
-				<Tag key="IsNoRenderModeElement" value="false" />
-			</Tags>
+			<Tags/>
 		</SubModule>
 	</SubModules>
 </Module>
